@@ -48,6 +48,7 @@ class JSONBusClient:
         self._listen_task = None
         self._listening = False
         self._callbacks = []            # List of (callback, filter) tuples
+        self._periodic_tasks = []       # List of (task, interval) tuples
 
         self._reader = None
         self._writer = None
@@ -249,20 +250,21 @@ class JSONBusClient:
         '''
         if not asyncio.iscoroutinefunction(task):
             raise ValueError("task must be an asynchronous function")
+        
+        self._periodic_tasks.append((task, interval))
+        print(f"Registered periodic task with interval: {interval} seconds")
 
-        async def periodic_wrapper():
-            while True:
-                try:
-                    await task()
-                    await asyncio.sleep(interval)
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    print(f"Error in periodic task: {e}")
-
-        self._callbacks.append((periodic_wrapper, None))
-        print(f"Added periodic task with interval: {interval} seconds")
-
+    async def _run_periodic_task(self, task, interval: float):
+        '''Run a periodic task at the specified interval.'''
+        while self._listening:
+            try:
+                await task()
+                await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"Error in periodic task: {e}")
+    
     def run(self) -> None:
         '''
         Connect to server, subscribe to all registered message types, and start listening.
@@ -291,6 +293,15 @@ class JSONBusClient:
                 
                 # Start the callback loop
                 self.start_listening()
+                
+                # Start periodic tasks
+                periodic_task_handles = []
+                for task, interval in self._periodic_tasks:
+                    task_handle = asyncio.create_task(self._run_periodic_task(task, interval))
+                    periodic_task_handles.append(task_handle)
+                
+                if self._periodic_tasks:
+                    print(f"Started {len(self._periodic_tasks)} periodic task(s)")
                                 
                 print("\nListening for subscribed messages... (Press Ctrl+C to stop)\n")
                 
@@ -304,6 +315,14 @@ class JSONBusClient:
 
                 # Clean up
                 self.stop_listening()
+                
+                # Cancel periodic tasks
+                for task_handle in periodic_task_handles:
+                    task_handle.cancel()
+                
+                # Wait for tasks to finish
+                if periodic_task_handles:
+                    await asyncio.gather(*periodic_task_handles, return_exceptions=True)
 
                 await self.unsubscribe()
                 await self.close()

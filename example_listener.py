@@ -31,10 +31,15 @@ def onSimulatedState(msg):
     
     print(f"[SimulatedState] X: {x}, Y: {y}, Z: {z}")
 
-interval = 0.1  # seconds between commands
+interval = 1.0  # seconds between commands
 
+counter = 0
 async def periodic():
-    print(f"Task has run...")
+    global counter
+    counter += 1
+    print(f"\n{'='*60}")
+    print(f"  >>> PERIODIC TASK #{counter} EXECUTED <<<")
+    print(f"{'='*60}\n")
         
 # Create client
 client = JSONBusClient(host="localhost", port=9005)
@@ -42,7 +47,7 @@ client = JSONBusClient(host="localhost", port=9005)
 # Add callbacks for different message types
 client.add_callback(onEstimatedState, ["EstimatedState"])
 client.add_callback(onSimulatedState, ["SimulatedState"])
-client.add_periodic_task(periodic, interval=5.0)            # every 5 seconds
+client.add_periodic_task(periodic, interval=1.0)            # every 1 second
 
 # Run the client (blocks until Ctrl+C)
 client.run()
