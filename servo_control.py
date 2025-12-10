@@ -8,7 +8,8 @@ Arguments:
 """
 
 import sys
-from petinga import VehicleController
+import asyncio
+from controller import VehicleController
 
 host = sys.argv[1]
 port = int(sys.argv[2])
@@ -18,20 +19,24 @@ value = float(sys.argv[4]) if len(sys.argv) > 4 else 0.0
 
 controller = VehicleController(host, port)
 
-try:
-    print(f"Connecting to vehicle at {host}:{port}...")
-    system_name = controller.connect()
-    if not system_name:
-        print("Warning: Could not determine system name, messages will use default source")
-    controller.set_servo_position(servo_id, value)
-            
-except ConnectionRefusedError:
-    print(f"Error: Could not connect to {host}:{port}")
-    sys.exit(1)
+async def main():
+    try:
+        print(f"Connecting to vehicle at {host}:{port}...")
+        system_name = await controller.connect()
+        if not system_name:
+            print("Warning: Could not determine system name, messages will use default source")
+        await controller.set_servo_position(servo_id, value)
+                
+    except ConnectionRefusedError:
+        print(f"Error: Could not connect to {host}:{port}")
+        sys.exit(1)
 
-except Exception as e:
-    print(f"Error: {e}")
-    sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
-finally:
-    controller.close()
+    finally:
+        await controller.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
